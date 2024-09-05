@@ -5,7 +5,8 @@ connections = Config(
     path="./env/connections.env",
     required_fields=[
         "REDIS_HOST", 
-        "REDIS_PORT"
+        "REDIS_PORT",
+        "REDIS_PASSWORD"
         ]
     )
 connections.setup()
@@ -25,7 +26,8 @@ routes = Config(
     path="./env/routes.env",
     required_fields=[
         "NAX_LOGIN",
-        "NAX_TEST_TOKEN"
+        "NAX_TEST_TOKEN", 
+        "NAX_GET_USER"
         ]
 )
 

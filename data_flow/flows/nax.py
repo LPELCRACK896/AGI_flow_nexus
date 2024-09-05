@@ -1,13 +1,18 @@
+from utils.routes import nax_check_token, nax_login, nax_get_user
+from tasks.connect.redis import get_nax_token, set_nax_token, set_area
 from config.config import connections, credentials
-from utils.routes import nax_check_token, nax_login
-from tasks.connect.redis import get_nax_token, update_nax_token
+from typing import Dict, List, Any, AnyStr
+from redis.exceptions import RedisError
 from colorama import init, Fore, Style
+from pydantic import ValidationError
 from prefect import task, flow
+from models.Area import Area, AreaUnits
 import requests
 import redis
-from redis.exceptions import RedisError
+from prefect.infrastructure import LocalProcess
 
 init(autoreset=True)
+semaphore = LocalProcess(semaphore_limit=2)
 
 class Nax:
     
@@ -47,7 +52,7 @@ class Nax:
             print(Fore.RED + f"Token generado inválido: {token}")
             return None
 
-        update_nax_token(self.rds, token)
+        set_nax_token(self.rds, token)
         return token
 
     @task
@@ -87,7 +92,44 @@ class Nax:
             print(Fore.RED + f"Server error. Status code: {response.status_code}, API feedback: {data}")
             raise Exception(f"Server error. Status code: {response.status_code}, API feedback: {data}")
     
+    @flow
+    def update_areas(self, token):
+        raw_areas = self.extract_areas(token)
+        processed_areas = self.clean_areas_data(raw_areas)
+        futures_set_area = set_area.map([self.rds] * len(processed_areas), processed_areas, task_runner=semaphore)
 
-    @task
-    def update_areas(self):
-        pass
+        failed_set_area = [future.result() is None for future in futures_set_area]
+
+        if any(failed_set_area):
+            raise RuntimeError("Set area failed in at least one item.")
+
+        return True
+    
+
+    @task(tags=["extract"])
+    def extract_areas(self, token):
+        headers = {"Authorization": token}
+        response = nax_get_user(headers)
+
+        if response.status_code == 200:
+            data = response.json()
+            if "areas" not in data:
+                raise KeyError("Couln't find areas in get user payload")
+            return data["areas"]
+            
+
+        raise RuntimeError("Unable to get user.")
+        
+    @task(tags=["transform"])
+    def clean_areas_data(self, raw_areas: List[Dict[str, Any]]):
+        clean_areas = []
+        for r_area in raw_areas:
+            try:
+                area = Area(**r_area)
+                area.units = AreaUnits(**{f"unidad_0{i}": r_area[f"unidad_0{i}"] for i in range(1, 6)})
+                clean_areas.append(area)
+            except ValidationError as e:
+                print(f"Error al procesar el área con id {r_area.get('id')}: {str(e)}")
+
+        return clean_areas
+    
