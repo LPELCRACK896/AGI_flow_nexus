@@ -1,0 +1,5 @@
+penv
+.env
+.idea
+/etl-nax-tests
+__pycache__
