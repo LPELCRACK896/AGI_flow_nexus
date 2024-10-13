@@ -1,0 +1,10 @@
+.venv
+env
+__pycache__
+.idea
+components/ml_models/autogluon_plague_classifier/assets.json
+components/ml_models/autogluon_plague_classifier/config.yaml
+components/ml_models/autogluon_plague_classifier/data_processors.pkl
+components/ml_models/autogluon_plague_classifier/df_preprocessor.pkl
+components/ml_models/autogluon_plague_classifier/hparams.yaml
+components/ml_models/autogluon_plague_classifier/model.ckpt
