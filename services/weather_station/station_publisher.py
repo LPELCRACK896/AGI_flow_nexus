@@ -23,7 +23,6 @@ formatter = CustomFormatter('%(asctime)s - %(levelname)s - %(message)s')
 console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
 
-# Load environment variables
 envs = dotenv_values(".env")
 STATION_WEBSITE_URL = envs["STATION_WEBSITE_URL_1"]
 LOGIN_ROUTE = envs["STATION_LOGIN_ROUTE"]
@@ -46,10 +45,8 @@ def send_to_rabbitmq(station_data):
         )
         channel = connection.channel()
 
-        # Declare the queue
         channel.queue_declare(queue="station_updates", durable=True)
 
-        # Publish the message
         message = json.dumps(station_data)
         channel.basic_publish(
             exchange='',
@@ -166,8 +163,12 @@ def login_and_redirect(session):
         logger.info("Accessed the main page successfully.")
         return True
 
-async def main():
-    """Main loop to poll station data and ensure session validity."""
+async def main_loop(polling_interval: int = 600):
+    """
+    Main loop to poll station data and ensure session validity.
+    :param polling_interval: Interval in seconds.
+    :return:
+    """
     station_ids = await fetch_station_ids()
 
     if not station_ids:
@@ -193,7 +194,7 @@ async def main():
                     session_check_and_login(session)
                     next_session_check = datetime.now(timezone.utc) + timedelta(hours=1)
 
-                sleep_time = 600
+                sleep_time = polling_interval
                 logger.warning(f"{sleep_time} seconds until next polling.")
                 await asyncio.sleep(sleep_time)
 
@@ -202,4 +203,4 @@ async def main():
                 session_check_and_login(session)
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    asyncio.run(main_loop())

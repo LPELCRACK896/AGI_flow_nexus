@@ -33,19 +33,21 @@ async def update_redis(station_id, timestamp):
 def parse_station_data(station_data):
     """Parse station data and ensure it has the correct date_time field."""
     try:
-        # Extract and parse the 'fecha' field
+        # Extraer el campo 'fecha' del station_data
         timestamp_str = station_data.get("fecha", "")
         now = datetime.now()
 
-        # Parse the timestamp and handle possible future dates
+        # Parsear el timestamp, agregando el año actual
         parsed_date = datetime.strptime(f"{now.year}-{timestamp_str}", "%Y-%d-%m %H:%M")
+
+        # Manejar fechas futuras reemplazando por el año anterior si es necesario
         if parsed_date > now:
             parsed_date = parsed_date.replace(year=now.year - 1)
 
-        # Make the datetime naive (without timezone info)
-        date_time = parsed_date  # No need for timezone info for PostgreSQL
+        # Asegurar que el timestamp sea timezone-aware
+        date_time = parsed_date.replace(tzinfo=timezone.utc)
 
-        # Extract readings safely and convert them to float
+        # Extraer lecturas y convertirlas a float
         readings = station_data.get("lecturas", {})
         temperature = float(readings.get("temperatura", 0.0))
         radiation = float(readings.get("radiacion", 0.0))
@@ -56,11 +58,10 @@ def parse_station_data(station_data):
         wind_direction = float(readings.get("direccion_viento", 0.0))
         heat_index = float(readings.get("indice_calor", 0.0))
 
-        # Prepare the parsed data as a tuple for insertion
+        # Preparar los datos para la inserción en la base de datos
         parsed_data = (
             station_data["station_id"],
-            None,  # Placeholder for 'value'
-            date_time,  # Naive datetime for PostgreSQL
+            date_time,  # Ahora timezone-aware
             temperature,
             radiation,
             relative_humidity,
@@ -78,6 +79,7 @@ def parse_station_data(station_data):
         logger.error(f"Error parsing station data: {e}")
         raise
 
+
 async def insert_station_data(parsed_station_data):
     """Insert the station data into PostgreSQL asynchronously."""
     try:
@@ -87,11 +89,11 @@ async def insert_station_data(parsed_station_data):
         await conn.execute(
             """
             INSERT INTO StationRegisters (
-                station_id, value, date_time, temperature, radiation, 
+                station_id, date_time, temperature, radiation, 
                 relative_humidity, precipitation, wind_speed, wetness, 
                 wind_direction, heat_index
             ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
             )
             """,
             *parsed_station_data  # Unpack the parsed data tuple
@@ -102,8 +104,6 @@ async def insert_station_data(parsed_station_data):
 
     except Exception as e:
         logger.error(f"Failed to insert station data: {e}")
-
-
 
 async def on_message(message):
     """Callback function for processing received messages."""
@@ -116,13 +116,14 @@ async def on_message(message):
         logger.info(f"Received data: {station_data}")
 
         # Parse and validate the station data
-        station_data = parse_station_data(station_data)
+        parsed_data = parse_station_data(station_data)
 
         # Insert the parsed data into PostgreSQL
-        await insert_station_data(station_data)
+        await insert_station_data(parsed_data)
 
     except Exception as e:
         logger.error(f"Failed to process message: {e}")
+
 
 async def main():
     """Main function to set up RabbitMQ consumer."""
