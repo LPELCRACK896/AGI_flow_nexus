@@ -9,4 +9,4 @@ COPY station_publisher.py ./
 COPY utils/ ./utils/
 COPY .env ./
 
-CMD ["python", "station_publisher.py"]
+CMD ["python", "-u", "station_publisher.py"]

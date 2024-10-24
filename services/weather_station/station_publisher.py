@@ -163,11 +163,10 @@ def login_and_redirect(session):
         logger.info("Accessed the main page successfully.")
         return True
 
-async def main_loop(polling_interval: int = 600):
+async def main_loop(polling_interval: int = 300):
     """
     Main loop to poll station data and ensure session validity.
     :param polling_interval: Interval in seconds.
-    :return:
     """
     station_ids = await fetch_station_ids()
 
@@ -181,8 +180,9 @@ async def main_loop(polling_interval: int = 600):
 
         next_session_check = datetime.now(timezone.utc) + timedelta(hours=1)
 
-        while True:
+        while True:  # Continuous polling loop
             try:
+                logger.info("Starting polling")
                 for station_id in station_ids:
                     station_data = await get_station_data(session, station_id)
                     if station_data and station_data["lecturas"]:
@@ -190,17 +190,17 @@ async def main_loop(polling_interval: int = 600):
                         new_timestamp = parse_station_timestamp(timestamp_str)
                         await check_and_update_redis(station_id, new_timestamp, station_data)
 
+                # Check if session needs renewal
                 if datetime.now(timezone.utc) >= next_session_check:
                     session_check_and_login(session)
                     next_session_check = datetime.now(timezone.utc) + timedelta(hours=1)
 
-                sleep_time = polling_interval
-                logger.warning(f"{sleep_time} seconds until next polling.")
-                await asyncio.sleep(sleep_time)
+                logger.warning(f"{polling_interval} seconds until next polling.")
+                await asyncio.sleep(polling_interval)
 
             except Exception as e:
                 logger.error(f"An error occurred: {e}")
-                session_check_and_login(session)
+                session_check_and_login(session)  # Attempt session recovery
 
 if __name__ == '__main__':
     asyncio.run(main_loop())
