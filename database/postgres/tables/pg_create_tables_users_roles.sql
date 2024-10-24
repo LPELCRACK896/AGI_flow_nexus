@@ -1,0 +1,16 @@
+CREATE TABLE roles (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(250) NOT NULL,
+    ai_models BOOLEAN NOT NULL DEFAULT FALSE,
+    satellite_images BOOLEAN NOT NULL DEFAULT FALSE,
+    meterologic_data BOOLEAN NOT NULL DEFAULT FALSE
+
+
+
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(250) NOT NULL,
+    email VARCHAR(250) UNIQUE NOT NULL,
+    password VARCHAR(250) NOT NULL,
+    role_id INT REFERENCES roles(id)
+);
