@@ -1,0 +1,8 @@
+
+fastapi
+pydantic
+sqlmodel
+uvicorn
+numpy
+tensorflow
+pillow

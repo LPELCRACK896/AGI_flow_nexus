@@ -1,7 +1,11 @@
 .venv
 env
+*.env
+*.keras
 __pycache__
 .idea
+station_consumer.tar
+station_publisher.tar
 components/ml_models/autogluon_plague_classifier/assets.json
 components/ml_models/autogluon_plague_classifier/config.yaml
 components/ml_models/autogluon_plague_classifier/data_processors.pkl
