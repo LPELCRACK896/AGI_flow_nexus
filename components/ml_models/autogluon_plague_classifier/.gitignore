@@ -1,6 +1,0 @@
-./assets.json
-./config.yaml
-./data_processors.pkl
-./df_preprocessor.pkl
-./hparams.yaml
-./model.ckpt
