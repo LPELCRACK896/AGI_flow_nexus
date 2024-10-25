@@ -1,11 +1,10 @@
-from fastapi import FastAPI
-from contextlib import asynccontextmanager
-from fastapi.openapi.docs import get_swagger_ui_html
+from api.src.routes.stations import stations_router, registers_router
 from fastapi.middleware.cors import CORSMiddleware
-from api.src.routes.ml import ml_router
-from api.src.config import settings
-from api.src.db.main import init_db
 from api.src.routes.users import users_router
+from contextlib import asynccontextmanager
+from api.src.routes.ml import ml_router
+from api.src.db.main import init_db
+from fastapi import FastAPI
 
 
 @asynccontextmanager
@@ -46,5 +45,5 @@ general_prefix = "/api/v1"
 #Models
 app.include_router(router=ml_router, prefix="/ml", tags=["Models"])
 app.include_router(router=users_router, prefix="/users", tags=["Users"])
-
-
+app.include_router(router=stations_router, prefix="/stations", tags=["Stations"])
+app.include_router(router=registers_router, prefix="/stations/registers", tags=["Stations Registers"])

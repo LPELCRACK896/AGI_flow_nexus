@@ -19,7 +19,7 @@ async_session_maker = sessionmaker(
 
 async def init_db():
     async with async_engine.begin() as conn:
-        from api.src.db.models import User, Role
+        from api.src.db.models import User, Role, StaticStation, StationRegister
         await conn.run_sync(SQLModel.metadata.create_all)
 
 async def get_session() -> AsyncSession:

@@ -1,6 +1,7 @@
 from sqlalchemy import Integer, String, Column, ForeignKey
 from sqlmodel import SQLModel, Field, Relationship
 from typing import Optional, List
+from datetime import datetime
 
 
 class Role(SQLModel, table=True):
@@ -32,3 +33,41 @@ class User(SQLModel, table=True):
 
     # Relación con roles
     role: Optional[Role] = Relationship(back_populates="users")
+
+
+class StaticStation(SQLModel, table=True):
+    __tablename__ = "staticstations"
+
+    id: Optional[int] = Field(
+        sa_column=Column(Integer, primary_key=True, autoincrement=True)
+    )
+    station_id: int = Field(sa_column=Column(Integer, unique=True, nullable=False))
+    name: Optional[str] = Field(max_length=256)
+    latitude: float = Field(nullable=False)
+    longitude: float = Field(nullable=False)
+    altitude: int = Field(nullable=False)
+    stratum: Optional[str] = Field(max_length=256)
+
+    registers: List["StationRegister"] = Relationship(back_populates="station")
+
+
+class StationRegister(SQLModel, table=True):
+    __tablename__ = "stationregisters"
+
+    station_id: int = Field(
+        foreign_key="staticstations.station_id", primary_key=True
+    )
+    date_time: datetime = Field(primary_key=True)
+    temperature: Optional[float]
+    radiation: Optional[float]
+    relative_humidity: Optional[float]
+    precipitation: Optional[float]
+    wind_speed: Optional[float]
+    wetness: Optional[float]
+    wind_direction: Optional[float]
+    heat_index: Optional[float]
+
+    station: Optional[StaticStation] = Relationship(back_populates="registers")
+
+    class Config:
+        indexes = {"ix_station_id_date_time": ("station_id", "date_time DESC")}
