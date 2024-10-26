@@ -17,7 +17,8 @@ async def lifespan(app: FastAPI):
 
 origins = [
     "http://localhost:5173",
-    "https://panel.agrointelligence.online"
+    "https://panel.agrointelligence.online",
+    "https://arcgismaps.pantaleon.com/"
 ]
 
 
