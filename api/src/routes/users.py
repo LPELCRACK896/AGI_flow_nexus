@@ -9,7 +9,7 @@ from api.src.db.models import User
 from api.src.functions.token import AuthToken
 users_router = APIRouter()
 
-@users_router.post('/register', status_code=HTTPStatus.CREATED)
+@users_router.post('/register', status_code=HTTPStatus.CREATED, include_in_schema=False)
 async def register(
     body: BodyRegister,
     db_session: AsyncSession = Depends(get_session)

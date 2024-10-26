@@ -1,19 +1,18 @@
-from projects.nax_etl.config.config import routes, data_sources
+from deploys.config import nax_routing
 import requests
 import datetime
 
 
 def nax_login(user, password):
     return requests.post(
-        url=data_sources.NAX_API + routes.NAX_LOGIN,
+        url=nax_routing.BASE_URL + nax_routing.POST_LOGIN,
         data={"user": user, "password": password}
     )
-
 
 def nax_check_token(token):
     headers = {"Authorization": token}
     return requests.get(
-        url=data_sources.NAX_API + routes.NAX_TEST_TOKEN,
+        url=nax_routing.BASE_URL + nax_routing.GET_CHECK_TOKEN,
         headers=headers
     )
 
@@ -21,7 +20,7 @@ def nax_check_token(token):
 def nax_get_user(token):
     headers = {"Authorization": token}
     return requests.get(
-        url=data_sources.NAX_API + routes.NAX_GET_USER,
+        url=nax_routing.BASE_URL  + nax_routing.GET_USER,
         headers=headers
     )
 
@@ -31,11 +30,11 @@ def nax_get_values(token, area_id: int, start_date: datetime.datetime, end_date:
     start_date_str = start_date.strftime("%Y-%m-%d")
     end_date_str = end_date.strftime("%Y-%m-%d")
 
-    ep = routes.NAX_GET_VALUES.replace("<area_id>", str(area_id))
+    ep = nax_routing.GET_VALUES.replace("<area_id>", str(area_id))
     ep = ep.replace("<start_date>", start_date_str)
     ep = ep.replace("<end_date>", end_date_str)
 
-    url = data_sources.NAX_API + ep
+    url = nax_routing.BASE_URL + ep
 
     return requests.get(
         url=url,
@@ -56,22 +55,31 @@ def nax_get_multiple_tiff_images(token: str, area_id: int, product_name: str, st
 
     diff = (end_date - start_date).days
 
-    image_count = diff // 5  # Images are taken every 5 days - Integer Divison
-    if image_count > 13:
-        raise ValueError(f"Cannot request more than 13 images, requested {image_count:.2f}")
+    if diff > 12:
+        raise ValueError(f"Cannot request using dates with more than 12 days difference, requested {diff:.2f}")
 
     start_date_str = start_date.strftime("%Y-%m-%d")
     end_date_str = end_date.strftime("%Y-%m-%d")
 
     date_range = [start_date_str, end_date_str]
+    url =nax_routing.BASE_URL + nax_routing.POST_DOWNLOAD_TIFF_IMAGE
+    payload = {
+        "fk_producto__fk_area": area_id,
+        "fk_producto__nombre": product_name,
+        "fecha__range": date_range
+    }
     return requests.post(
-        url=data_sources.NAX_API + routes.NAX_DOWNLOAD_TIFF_IMAGE,
+        url=url,
         headers=headers,
-        data={
-            "fecha__range": date_range,
-            "fk_producto__nombre": product_name,
-            "fk_producto__fk_area": area_id
-
-        }
+        json=payload
     )
 
+
+def nax_get_area_products(token:str, area_id: int):
+    headers = {"Authorization": token}
+    ep = nax_routing.GET_AREA_PRODUCTS.replace("<area_id>", str(area_id))
+    url = nax_routing.BASE_URL + ep
+    return requests.get(
+        url=url,
+        headers=headers
+    )
