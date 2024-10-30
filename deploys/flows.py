@@ -6,7 +6,7 @@ from deploys.nax import authentication, get_areas, get_products_on_area, get_and
 from deploys.redis_tasks import get_redis_connection
 from deploys.ceph import CephConnection
 from deploys.models import Area, Product
-from deploys.db import initialize_connection
+from deploys.db import initialize_connection, insert_area_and_products
 
 @flow
 def etl_satellite_images_last_ten_days():
@@ -67,7 +67,27 @@ def etl_satellite_images_per_area(start_date: date, end_date: date, area_name: s
     pg_conn.close()
 
 
+@flow
+def etl_extract_area_product():
 
+    redis_connection = get_redis_connection()
+
+    token = authentication(redis_connection)
+    areas = get_areas(token)
+
+    for area in areas:
+        get_products_on_area(token, area)
+
+    pg_conn = initialize_connection()
+    for area in areas:
+        insert_area_and_products(pg_conn, area)
+
+
+
+
+"""if __name__ == "__main__":
+    etl_extract_area_product()
+"""
 
 
 
