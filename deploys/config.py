@@ -17,6 +17,12 @@ class Settings(BaseSettings):
     NAX_USER: str
     NAX_PASSWORD: str
 
+    PG_DATABASE_URL: str
+    PG_USER: str
+    PG_PASSWORD: str
+    PG_DATABASE: str
+    PG_HOST: str
+
     model_config = SettingsConfigDict(
         env_file="./.env",
         extra="ignore"

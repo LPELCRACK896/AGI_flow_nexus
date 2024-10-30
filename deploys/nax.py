@@ -16,7 +16,7 @@ from deploys.models import Area, Product
 from deploys.config import settings
 from prefect.logging import get_run_logger
 from deploys.ceph import CephConnection
-
+from deploys.db import insert_satellite_image
 
 @task
 def new_login(redis_connection: redis.Redis):
@@ -103,46 +103,47 @@ def get_products_on_area(token: str, area: Area):
 @task
 def get_and_load_products_from_area(
     token: str, areas: List[Area], start_date: datetime, end_date: datetime,
-    ceph_conn: CephConnection
+    ceph_conn: CephConnection, pg_conn
 ):
     futures = get_images_drive_url.map(
         unmapped(token),
         [area for area in areas for _ in area.products],
-        [product.name for area in areas for product in area.products],
+        [product for area in areas for product in area.products],
         unmapped(start_date),
         unmapped(end_date),
         unmapped(ceph_conn),
+        unmapped(pg_conn)
     )
     return futures.result()
 
 @task
 def get_images_drive_url(
-    token: str, area: Area, product_name: str, start_date: datetime,
-    end_date: datetime, ceph_conn: CephConnection
+    token: str, area: Area, product: Product, start_date: datetime,
+    end_date: datetime, ceph_conn: CephConnection, pg_conn
 ):
     logger = get_run_logger()
-    response = nax_get_multiple_tiff_images(token, area.id, product_name, start_date, end_date)
+    response = nax_get_multiple_tiff_images(token, area.id, product.name, start_date, end_date)
 
     if response.status_code == 200:
         data = response.json()
         if "download_link" in data:
-            logger.info(f"Got {data['download_link']} for {product_name} from {area.name}.")
+            logger.info(f"Got {data['download_link']} for {product.name} from {area.name}.")
             return download_zip_from_drive_shared_and_upload(
-                data["download_link"], area.name, product_name, ceph_conn
+                data["download_link"], area, product, ceph_conn, pg_conn
             )
 
         logger.warning(f"No download_link in response: {data}.")
         return None
 
     if response.status_code == 400:
-        logger.warning(f"No data available for {product_name} in {area.name}.")
+        logger.warning(f"No data available for {product.name} in {area.name}.")
         return
 
-    raise ValueError(f"Error requesting drive URL. Feedback: {response}")
+    logger.error(f"Got {response.status_code} ({response.text}) for {product.name} in {area.name}.")
 
 @task
 def download_zip_from_drive_shared_and_upload(
-    share_url: str, area_name: str, product_name: str, ceph_con: CephConnection
+    share_url: str, area: Area, product: Product, ceph_con: CephConnection, pg_conn
 ):
     logger = get_run_logger()
     download_url = build_download_url_from_shared_drive(share_url)
@@ -150,20 +151,25 @@ def download_zip_from_drive_shared_and_upload(
 
     if response.status_code != 200:
         raise RuntimeError(f"Failed downloading file from {download_url}. Status: {response.status_code}")
+    try:
+        zip_file = zipfile.ZipFile(io.BytesIO(response.content))
 
-    zip_file = zipfile.ZipFile(io.BytesIO(response.content))
+        for file_name in zip_file.namelist():
+            logger.info(f"Extracting: {file_name}")
+            date_data_from_filename = file_name.split(".")[0]
+            year, month, day = int(date_data_from_filename[:4]), int(date_data_from_filename[4:6]), int(date_data_from_filename[6:])
+            file_date = date(year, month, day)
 
-    for file_name in zip_file.namelist():
-        logger.info(f"Extracting: {file_name}")
-        date_data_from_filename = file_name.split(".")[0]
-        year, month, day = int(date_data_from_filename[:4]), int(date_data_from_filename[4:6]), int(date_data_from_filename[6:])
-        file_date = date(year, month, day)
+            with zip_file.open(file_name) as extracted_file:
+                file_data = extracted_file.read()
+                etag = ceph_con.upload_satellite_image(file_data, file_date, area, product)
 
-        with zip_file.open(file_name) as extracted_file:
-            file_data = extracted_file.read()
-            etag = ceph_con.upload_satellite_image(file_data, file_date, area_name, product_name)
+                if etag:
+                    logger.info(f"File {file_name} uploaded successfully. ETag: {etag}")
+                    insert_satellite_image(conn=pg_conn ,product_id=product.id, area_id=area.id, image_etag=etag, date_time=file_date)
 
-            if etag:
-                logger.info(f"File {file_name} uploaded successfully. ETag: {etag}")
-            else:
-                logger.error(f"Failed to upload {file_name}.")
+                else:
+                    logger.error(f"Failed to upload {file_name}.")
+    except Exception as e:
+        logger.error(f"Unable to extract file from response: {response}")
+        return
