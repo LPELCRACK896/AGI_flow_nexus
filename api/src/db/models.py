@@ -1,8 +1,7 @@
-from sqlalchemy import Integer, String, Column, ForeignKey
+from sqlalchemy import Integer, Column
 from sqlmodel import SQLModel, Field, Relationship
 from typing import Optional, List
 from datetime import datetime
-
 
 class Role(SQLModel, table=True):
     __tablename__ = "roles"
@@ -31,7 +30,6 @@ class User(SQLModel, table=True):
 
     role_id: Optional[int] = Field(default=None, foreign_key="roles.id")
 
-    # Relación con roles
     role: Optional[Role] = Relationship(back_populates="users")
 
 

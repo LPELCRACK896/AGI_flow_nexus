@@ -1,3 +1,4 @@
+from api.src.routes.satelliteimages import satellite_images_router
 from api.src.routes.stations import stations_router, registers_router
 from fastapi.middleware.cors import CORSMiddleware
 from api.src.routes.users import users_router
@@ -48,3 +49,4 @@ app.include_router(router=ml_router, prefix="/ml", tags=["Models"])
 app.include_router(router=users_router, prefix="/users", tags=["Users"])
 app.include_router(router=stations_router, prefix="/stations", tags=["Stations"])
 app.include_router(router=registers_router, prefix="/stations/registers", tags=["Stations Registers"])
+app.include_router(router=satellite_images_router, prefix="/satellite_images", tags=["Satellite Images"])
